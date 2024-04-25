@@ -262,5 +262,6 @@ while True:
     print('Got connection from', addr)
     threading.Thread(target=handle_client, args=(c,)).start()
     threading.Thread(target=process_intersection, args=()).start()
+
 s.close()
 
