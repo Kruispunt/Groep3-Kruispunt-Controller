@@ -11,49 +11,30 @@ PORT = 8080  # De poort waarop de C#-simulatie luistert
 groen = 5
 oranje = 2
 
+groen_fietsers = 10
+oranje_fietsers = 2
+
+received_data = {}
+simulation_lock = threading.Lock()  # Om gelijktijdige toegang tot de simulatie te voorkomen
 
 def process_detection(detection, road_user):
     """
     Verwerk een individuele detectie voor een bepaald type weggebruiker (auto's, fietsers, voetgangers)
     en retourneer de toestand van de baan.
     """
-    detected_states = []
-    detect_cyclist_or_pedestrian = False  # Variabele om te controleren of een fietser of voetganger is gedetecteerd
+    detected_states = [0, 0, 0, 0]  # Standaardstatus voor elke baan
 
-    detected_states = []
+    if road_user == "Cars":
+        for index, detectie in enumerate(detection):
+            if detectie.get("DetectNear", False) or detectie.get("DetectFar", False):
+                detected_states[index] = 2  # Als detectie in de buurt is, zet de baanstatus op 2
+    elif road_user == "Cyclists":
+        detected_states = [2 if d.get("DetectCyclist", False) else 0 for d in detection]
+    elif road_user == "Pedestrians":
+        detected_states = [2 if d.get("DetectPedestrians", False) else 0 for d in detection]
+    elif road_user == "PrioCar":
+        detected_states = [2 if detection else 0]  # Als PrioCar wordt gedetecteerd, zet het licht meteen op groen
 
-    for detectie in detection:
-        if road_user == "Cars":
-            detect_near = detectie.get("DetectNear", False)
-            detect_far = detectie.get("DetectFar", False)
-            current_state = detectie.get("CurrentState", 0)  # Huidige staat van de baan
-
-            if detect_near and not detect_far:
-                if current_state == 0:
-                    detected_states.append(2)
-                elif current_state == 2:
-                    detected_states.append(1)
-            elif not detect_near and not detect_far:
-                detected_states.append(0)
-            elif detect_near and detect_far:
-                detected_states.append(2)
-            else:
-                detected_states.append(current_state)
-            pass
-
-        elif road_user == "Cyclists":
-            detect_cyclist = detectie.get("DetectCyclist", False)
-            if detect_cyclist:
-                detect_cyclist_or_pedestrian = True  # Een fietser is gedetecteerd
-            detected_states.append(1 if detect_cyclist else 0)
-            pass
-
-        elif road_user == "Pedestrians":
-            detect_pedestrians = detectie.get("DetectPedestrians", False)
-            if detect_pedestrians:
-                detect_cyclist_or_pedestrian = True  # Een voetganger is gedetecteerd
-            detected_states.append(1 if detect_pedestrians else 0)
-            pass
     return detected_states
 
 
@@ -72,196 +53,205 @@ def generate_empty_json(intersection):
             'F': {"Cars": [0, 0, 0, 0], "Cyclists": [0, 0], "Pedestrians": [0, 0, 0, 0]}
         }
     }
-received_data = {}
-def process_intersection():
+
+def process_intersection_1():
     """
-    Verwerk detecties op een kruispunt.
+    Verwerk detecties op kruispunt 1.
     """
     while True:
-        for intersection, intersection_data in received_data.items():
-            print(f"Checking intersection {intersection}:")
+        global received_data
+        intersection_data = received_data.get('1', {})
+        for light, light_data in intersection_data.items():
+            json_data = generate_empty_json('1')
+            detected_pedestrian_or_cyclists = False
+            for road_user, detections in light_data.items():
+                detected_states = process_detection(detections, road_user)
+                json_data['1'][light][road_user] = detected_states
+                if "Pedestrians" in detected_states or "Cyclists" in detected_states:
+                    detected_pedestrian_or_cyclists = True
 
-            for light, light_data in intersection_data.items():
-                detected_pedestrian_or_cyclists = False
-                json_data = generate_empty_json(intersection)
-                print('reset')
-
-                for road_user, detections in light_data.items():
-                    detected_states = process_detection(detections, road_user)
-                    print(f"  {road_user}: Detected at {light}: {detected_states}")
-                    json_data[intersection][light][road_user] = detected_states
-
-                    # Check for pedestrian or cyclist detection
-                    if road_user in ["Cyclists", "Pedestrians"] and any(detected_states):
-                        detected_pedestrian_or_cyclists = True
-
-                # Reset car state if pedestrians or cyclists detected
-                if detected_pedestrian_or_cyclists:
-                    json_data[intersection][light]["Cars"] = [0, 0, 0, 0]
+            if not detected_pedestrian_or_cyclists:
+                merge_and_send_to_simulation(json_data)
+                time.sleep(groen)
+                json_data['1'][light]['Cars'] = [1, 1, 1, 1]
+                merge_and_send_to_simulation(json_data)
+                time.sleep(oranje)
 
 
-                # Simulate green light duration
-                if 2 in json_data[intersection][light]['Cars']:
-                    send_signal_to_simulation(json_data)
-                    time.sleep(groen)
-                    json_data[intersection][light]['Cars'] = [1, 1, 1, 1]
-                    send_signal_to_simulation(json_data)
-                    time.sleep(oranje)
-
-                # Send JSON data to simulation
-                send_signal_to_simulation(json_data)
-
-
-
-def send_signal_to_simulation(json_data):
+def process_intersection_2():
     """
-    Stuur de JSON-data naar de simulatie.
+    Verwerk detecties op kruispunt 1.
     """
-    print(json.dumps(json_data))
-    c.send(json.dumps(json_data).encode())
-    time.sleep(0.1)
+    while True:
+        global received_data
+        intersection_data = received_data.get('2', {})
+        for light, light_data in intersection_data.items():
+            json_data = generate_empty_json('2')
+            detected_pedestrian_or_cyclists = False
+            for road_user, detections in light_data.items():
+                detected_states = process_detection(detections, road_user)
+                json_data['2'][light][road_user] = detected_states
+                if "Pedestrians" in detected_states or "Cyclists" in detected_states:
+                    detected_pedestrian_or_cyclists = True
 
+            if not detected_pedestrian_or_cyclists:
+                merge_and_send_to_simulation(json_data)
+                time.sleep(groen)
+                json_data['2'][light]['Cars'] = [1, 1, 1, 1]
+                merge_and_send_to_simulation(json_data)
+                time.sleep(oranje)
+def merge_and_send_to_simulation(json_data):
+    """
+    Combineer de JSON-gegevens van kruispunt 1 en kruispunt 2 en stuur deze naar de simulatie.
+    """
+    global received_data
+    with simulation_lock:
+        combined_data = {"1": {}, "2": {}}
+        combined_data["1"].update(json_data['1'])
+        combined_data["2"].update(json_data['2'])
+        # c.send(json.dumps(combined_data).encode())
+        print('Merged and sent to simulation:', json.dumps(combined_data))
+        time.sleep(0.1)
 
 def handle_client(c):
-    global received_data
     """
     Behandel communicatie met de simulatie.
     """
+    global received_data
+    global json_data
     while True:
         # Wacht op informatie van de simulatie
-        message = c.recv(2500)
-        print('Received:', message)
+        # message = c.recv(2500)
+        # print('Received:', message)
 
         # Ontleed de ontvangen JSON-data
-        received_data = json.loads(message)
+        # received_data = json.loads(message)
 
         # voor development
-        # received_data = {
-        #             "1": {
-        #                 "A": {
-        #                     "Cars":
-        #                         [
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False},
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False},
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False},
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False}
-        #                         ],
-        #                     "Cyclists":
-        #                         [
-        #                             {"DetectCyclist": False},
-        #                             {"DetectCyclist": False}
-        #                         ],
-        #                     "Pedestrians":
-        #                         [
-        #                             {"DetectPedestrians": False},
-        #                             {"DetectPedestrians": False},
-        #                             {"DetectPedestrians": False},
-        #                             {"DetectPedestrians": False}
-        #                         ]
-        #                 },
-        #                 "B": {
-        #                     "Cars":
-        #                         [
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False},
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False},
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False},
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False}
-        #                         ],
-        #                     "Cyclists":
-        #                         [
-        #                             {"DetectCyclist": False},
-        #                             {"DetectCyclist": False}
-        #                         ],
-        #                     "Pedestrians":
-        #                         [
-        #                             {"DetectPedestrians": False},
-        #                             {"DetectPedestrians": False},
-        #                             {"DetectPedestrians": False},
-        #                             {"DetectPedestrians": False}
-        #                         ],
-        #                     "Busses":
-        #                         [45, 67, 21]
-        #                 },
-        #                 "C": {
-        #                     "Cars":
-        #                         [
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False},
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False},
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False},
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False}
-        #                         ]
-        #                 }
-        #             },
-        #             "2": {
-        #                 "D": {
-        #                     "Cars":
-        #                         [
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False},
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False},
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False},
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False}
-        #                         ]
-        #                     },
-        #                 "E": {
-        #                     "Cars":
-        #                         [
-        #                             {"DetectNear": True, "DetectFar": False, "PrioCar": False},
-        #                             {"DetectNear": False, "DetectFar": True, "PrioCar": False},
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False}
-        #                         ],
-        #                     "Cyclists":
-        #                         [
-        #                             {"DetectCyclist": False},
-        #                             {"DetectCyclist": False}
-        #                         ],
-        #                     "Pedestrians":
-        #                         [
-        #                             {"DetectPedestrians": False},
-        #                             {"DetectPedestrians": False},
-        #                             {"DetectPedestrians": False},
-        #                             {"DetectPedestrians": False}
-        #                         ],
-        #                     "Busses":
-        #                         [45, 67, 21]
-        #                 },
-        #                 "F": {
-        #                     "Cars":
-        #                         [
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False},
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False},
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False},
-        #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False}
-        #                         ],
-        #                     "Cyclists":
-        #                         [
-        #                             {"DetectCyclist": False},
-        #                             {"DetectCyclist": False}
-        #                         ],
-        #                     "Pedestrians":
-        #                         [
-        #                             {"DetectPedestrians": False},
-        #                             {"DetectPedestrians": False},
-        #                             {"DetectPedestrians": False},
-        #                             {"DetectPedestrians": False}
-        #                         ]
-        #                 }
-        #             }
-        #         }
-        # Check of er verkeer is op basis van ontvangen data
-
-
+        received_data = {
+                    "1": {
+                        "A": {
+                            "Cars":
+                                [
+                                    {"DetectNear": True, "DetectFar": False, "PrioCar": False},
+                                    {"DetectNear": False, "DetectFar": False, "PrioCar": False},
+                                    {"DetectNear": False, "DetectFar": False, "PrioCar": False},
+                                    {"DetectNear": False, "DetectFar": False, "PrioCar": False}
+                                ],
+                            "Cyclists":
+                                [
+                                    {"DetectCyclist": False},
+                                    {"DetectCyclist": False}
+                                ],
+                            "Pedestrians":
+                                [
+                                    {"DetectPedestrians": False},
+                                    {"DetectPedestrians": False},
+                                    {"DetectPedestrians": False},
+                                    {"DetectPedestrians": False}
+                                ]
+                        },
+                        "B": {
+                            "Cars":
+                                [
+                                    {"DetectNear": False, "DetectFar": False, "PrioCar": False},
+                                    {"DetectNear": False, "DetectFar": False, "PrioCar": False},
+                                    {"DetectNear": False, "DetectFar": False, "PrioCar": False},
+                                    {"DetectNear": False, "DetectFar": False, "PrioCar": False}
+                                ],
+                            "Cyclists":
+                                [
+                                    {"DetectCyclist": False},
+                                    {"DetectCyclist": False}
+                                ],
+                            "Pedestrians":
+                                [
+                                    {"DetectPedestrians": False},
+                                    {"DetectPedestrians": False},
+                                    {"DetectPedestrians": False},
+                                    {"DetectPedestrians": False}
+                                ],
+                            "Busses":
+                                []
+                        },
+                        "C": {
+                            "Cars":
+                                [
+                                    {"DetectNear": False, "DetectFar": False, "PrioCar": False},
+                                    {"DetectNear": False, "DetectFar": False, "PrioCar": False},
+                                    {"DetectNear": False, "DetectFar": False, "PrioCar": False},
+                                    {"DetectNear": False, "DetectFar": False, "PrioCar": False}
+                                ]
+                        }
+                    },
+                    "2": {
+                        "D": {
+                            "Cars":
+                                [
+                                    {"DetectNear": True, "DetectFar": False, "PrioCar": False},
+                                    {"DetectNear": False, "DetectFar": False, "PrioCar": False},
+                                    {"DetectNear": False, "DetectFar": False, "PrioCar": False},
+                                    {"DetectNear": False, "DetectFar": False, "PrioCar": False}
+                                ]
+                            },
+                        "E": {
+                            "Cars":
+                                [
+                                    {"DetectNear": False, "DetectFar": False, "PrioCar": False},
+                                    {"DetectNear": False, "DetectFar": True, "PrioCar": False},
+                                    {"DetectNear": False, "DetectFar": False, "PrioCar": False}
+                                ],
+                            "Cyclists":
+                                [
+                                    {"DetectCyclist": False},
+                                    {"DetectCyclist": False}
+                                ],
+                            "Pedestrians":
+                                [
+                                    {"DetectPedestrians": False},
+                                    {"DetectPedestrians": False},
+                                    {"DetectPedestrians": False},
+                                    {"DetectPedestrians": False}
+                                ],
+                            "Busses":
+                                [0]
+                        },
+                        "F": {
+                            "Cars":
+                                [
+                                    {"DetectNear": True, "DetectFar": False, "PrioCar": False},
+                                    {"DetectNear": False, "DetectFar": False, "PrioCar": False},
+                                    {"DetectNear": False, "DetectFar": False, "PrioCar": False},
+                                    {"DetectNear": False, "DetectFar": False, "PrioCar": False}
+                                ],
+                            "Cyclists":
+                                [
+                                    {"DetectCyclist": False},
+                                    {"DetectCyclist": False}
+                                ],
+                            "Pedestrians":
+                                [
+                                    {"DetectPedestrians": False},
+                                    {"DetectPedestrians": False},
+                                    {"DetectPedestrians": False},
+                                    {"DetectPedestrians": False}
+                                ]
+                        }
+                    }
+                }
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.bind((HOST, PORT))
 s.listen(5)
 
-# Voor development
-# handle_client(s)
+# Start threads voor het verwerken van elk kruispunt
+threading.Thread(target=handle_client, args=(s,)).start()
+threading.Thread(target=process_intersection_1, args=()).start()
+threading.Thread(target=process_intersection_2, args=()).start()
 while True:
     c, addr = s.accept()
     print('Got connection from', addr)
+    # Voor elke verbinding start een nieuwe thread om de client te behandelen
     threading.Thread(target=handle_client, args=(c,)).start()
-    threading.Thread(target=process_intersection, args=()).start()
 
 s.close()
-
