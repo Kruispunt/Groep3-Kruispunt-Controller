@@ -1,0 +1,235 @@
+{
+  "1": {
+    "A": {
+      "Cars": [
+        {
+          "DetectNear": false,
+          "DetectFar": false,
+          "PrioCar": false
+        },
+        {
+          "DetectNear": false,
+          "DetectFar": false,
+          "PrioCar": false
+        },
+        {
+          "DetectNear": true,
+          "DetectFar": false,
+          "PrioCar": false
+        },
+        {
+          "DetectNear": false,
+          "DetectFar": true,
+          "PrioCar": false
+        }
+      ],
+      "Cyclists": [
+        {
+          "DetectCyclist": false
+        },
+        {
+          "DetectCyclist": false
+        }
+      ],
+      "Pedestrians": [
+        {
+          "DetectPedestrians": false
+        },
+        {
+          "DetectPedestrians": false
+        },
+        {
+          "DetectPedestrians": false
+        },
+        {
+          "DetectPedestrians": false
+        }
+      ]
+    },
+    "B": {
+      "Cars": [
+        {
+          "DetectNear": false,
+          "DetectFar": false,
+          "PrioCar": false
+        },
+        {
+          "DetectNear": false,
+          "DetectFar": false,
+          "PrioCar": false
+        },
+        {
+          "DetectNear": false,
+          "DetectFar": false,
+          "PrioCar": false
+        },
+        {
+          "DetectNear": false,
+          "DetectFar": false,
+          "PrioCar": false
+        }
+      ],
+      "Cyclists": [
+        {
+          "DetectCyclist": false
+        },
+        {
+          "DetectCyclist": false
+        }
+      ],
+      "Pedestrians": [
+        {
+          "DetectPedestrians": false
+        },
+        {
+          "DetectPedestrians": false
+        },
+        {
+          "DetectPedestrians": false
+        },
+        {
+          "DetectPedestrians": false
+        }
+      ],
+      "Busses": []
+    },
+    "C": {
+      "Cars": [
+        {
+          "DetectNear": false,
+          "DetectFar": false,
+          "PrioCar": false
+        },
+        {
+          "DetectNear": false,
+          "DetectFar": false,
+          "PrioCar": false
+        },
+        {
+          "DetectNear": false,
+          "DetectFar": false,
+          "PrioCar": false
+        },
+        {
+          "DetectNear": false,
+          "DetectFar": false,
+          "PrioCar": false
+        }
+      ]
+    }
+  },
+  "2": {
+    "D": {
+      "Cars": [
+        {
+          "DetectNear": false,
+          "DetectFar": false,
+          "PrioCar": false
+        },
+        {
+          "DetectNear": false,
+          "DetectFar": false,
+          "PrioCar": false
+        },
+        {
+          "DetectNear": false,
+          "DetectFar": false,
+          "PrioCar": false
+        },
+        {
+          "DetectNear": false,
+          "DetectFar": false,
+          "PrioCar": false
+        }
+      ]
+    },
+    "E": {
+      "Cars": [
+        {
+          "DetectNear": false,
+          "DetectFar": false,
+          "PrioCar": true
+        },
+        {
+          "DetectNear": false,
+          "DetectFar": false,
+          "PrioCar": false
+        },
+        {
+          "DetectNear": false,
+          "DetectFar": false,
+          "PrioCar": false
+        }
+      ],
+      "Cyclists": [
+        {
+          "DetectCyclist": false
+        },
+        {
+          "DetectCyclist": false
+        }
+      ],
+      "Pedestrians": [
+        {
+          "DetectPedestrians": false
+        },
+        {
+          "DetectPedestrians": false
+        },
+        {
+          "DetectPedestrians": false
+        },
+        {
+          "DetectPedestrians": false
+        }
+      ],
+      "Busses": []
+    },
+    "F": {
+      "Cars": [
+        {
+          "DetectNear": false,
+          "DetectFar": false,
+          "PrioCar": false
+        },
+        {
+          "DetectNear": true,
+          "DetectFar": false,
+          "PrioCar": false
+        },
+        {
+          "DetectNear": false,
+          "DetectFar": false,
+          "PrioCar": true
+        },
+        {
+          "DetectNear": true,
+          "DetectFar": false,
+          "PrioCar": false
+        }
+      ],
+      "Cyclists": [
+        {
+          "DetectCyclist": false
+        },
+        {
+          "DetectCyclist": false
+        }
+      ],
+      "Pedestrians": [
+        {
+          "DetectPedestrians": false
+        },
+        {
+          "DetectPedestrians": false
+        },
+        {
+          "DetectPedestrians": false
+        },
+        {
+          "DetectPedestrians": false
+        }
+      ]
+    }
+  }
+}'
