@@ -37,7 +37,7 @@ def process_detection(detection, road_user):
         detected_states = [2 if d.get("DetectPedestrians", False) else 0 for d in detection]
     elif road_user == "Busses":
         if len(detection) > 0:
-            detected_states = [2 if detection[0] in [22,28,95,825,695] else 0]
+            detected_states = [[0,2] if detection[0] in [22,28,95,825,695] else 0]
     return detected_states
 
 
@@ -94,23 +94,22 @@ def check_prio_car():
         for intersection, intersection_data in received_data.items():
             for light, light_data in intersection_data.items():
                 for road_user_data in light_data.values():
-                    if not light_data.get("Busses"):
-                        for detection in road_user_data:
-                            if "PrioCar" in detection and detection["PrioCar"]:
-                                # Zet alle stoplichten op rood
-                                red_data = generate_empty_json()
-                                print('Sending red:', json.dumps(red_data))
-                                c.send(json.dumps(red_data).encode())
+                    for detection in road_user_data:
+                        if "PrioCar" in detection and detection["PrioCar"]:
+                            # Zet alle stoplichten op rood
+                            red_data = generate_empty_json()
+                            print('Sending red:', json.dumps(red_data))
+                            c.send(json.dumps(red_data).encode())
 
-                                # Zet het stoplicht van de PrioCar op groen
-                                prio_car_data = generate_empty_json()
-                                prio_car_data[intersection][light]["Cars"] = [2] * len(light_data["Cars"])
-                                print('Sending green for PrioCar:', json.dumps(prio_car_data))
-                                c.send(json.dumps(prio_car_data).encode())
-                                time.sleep(groen)
-                                # Wacht een korte tijd voordat de volgende controle wordt uitgevoerd
-                                time.sleep(1)
-                                break  # Stop met zoeken zodra een PrioCar is gevonden
+                            # Zet het stoplicht van de PrioCar op groen
+                            prio_car_data = generate_empty_json()
+                            prio_car_data[intersection][light]["Cars"] = [2] * len(light_data["Cars"])
+                            print('Sending green for PrioCar:', json.dumps(prio_car_data))
+                            c.send(json.dumps(prio_car_data).encode())
+                            time.sleep(groen)
+                            # Wacht een korte tijd voordat de volgende controle wordt uitgevoerd
+                            time.sleep(1)
+                            break  # Stop met zoeken zodra een PrioCar is gevonden
         # Wacht een korte tijd voordat de volgende controle wordt uitgevoerd
         time.sleep(1)
 def set_oranje(combined_data):
@@ -134,19 +133,19 @@ def send_and_wait(data):
     red_data = generate_empty_json()
     print('Sending red:', json.dumps(red_data))
     c.send(json.dumps(red_data).encode())
-    time.sleep(1)
+    time.sleep(5)
 
 def send_cyclists_and_pedestrians(data):
-    print('Sending cyclists and pedestrians:', json.dumps(data))
+    print('Sending green (cp):', json.dumps(data))
     c.send(json.dumps(data).encode())
     time.sleep(groen_fietsers)
-    print('Sending orange:', json.dumps(set_oranje(data)))
+    print('Sending orange(cp):', json.dumps(set_oranje(data)))
     c.send(json.dumps(set_oranje(data)).encode())
     time.sleep(oranje_fietsers)
     red_data = generate_empty_json()
-    print('Sending red:', json.dumps(red_data))
+    print('Sending red(cp):', json.dumps(red_data))
     c.send(json.dumps(red_data).encode())
-    time.sleep(1)
+    time.sleep(6)
 def get_pedestrian_and_cyclists(json_data):
     pedestrian_lists = [
         json_data["1"]["A"]["Pedestrians"],
@@ -171,6 +170,7 @@ def cyclists_and_pedestrians(data):
         for light, light_data in lights_data.items():
             # Zet de data van Cars op 0
             modified_data[intersection][light]['Cars'] = [0] * len(light_data['Cars'])
+            modified_data[intersection][light]['Busses'] = [0] * len(light_data['Cars'])
             # Zet alle data van Cyclists en Pedestrians op 2
             if 'Cyclists' in light_data:
                 modified_data[intersection][light]['Cyclists'] = [2] * len(light_data['Cyclists'])
@@ -207,8 +207,8 @@ def merge_and_send_to_simulation(json_data):
 
         combined_data_CF["1"]["C"]["Cars"] = json_data["1"]["C"]["Cars"]
         combined_data_CF["2"]["F"]["Cars"] = json_data["2"]["F"]["Cars"]
-        combined_data_CF["1"]["B"]["Cars"] = [0, 0] + json_data["1"]["B"]["Cars"][-2:]  # Voeg de eerste twee elementen van json_data["1"]["B"] toe
         combined_data_CF["2"]["D"]["Cars"] = [0,0] + json_data["2"]["D"]["Cars"][-2:]  # Voeg de eerste twee elementen van json_data["2"]["E"] toe
+        combined_data_CF["1"]["B"]["Busses"] = [2] if any(bus in [22, 28, 95, 825, 695] for bus in received_data.get("1", {}).get("B", {}).get("Busses", [])) else [0]
 
         if 2 in combined_data_CF["1"]["C"]["Cars"] or 2 in combined_data_CF["2"]["F"]["Cars"]:
             send_and_wait(combined_data_CF)
@@ -239,7 +239,7 @@ def handle_client(c):
         #                             {"DetectNear": True, "DetectFar": False, "PrioCar": False},
         #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False},
         #                             {"DetectNear": False, "DetectFar": False, "PrioCar": False},
-        #                             {"DetectNear": True, "DetectFar": False, "PrioCar": True}
+        #                             {"DetectNear": True, "DetectFar": False, "PrioCar": False}
         #                         ],
         #                     "Cyclists":
         #                         [
@@ -275,7 +275,7 @@ def handle_client(c):
         #                             {"DetectPedestrians": False}
         #                         ],
         #                     "Busses":
-        #                         [14,22,1]
+        #                         [95,28]
         #                 },
         #                 "C": {
         #                     "Cars":
