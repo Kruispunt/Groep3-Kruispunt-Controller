@@ -24,3 +24,4 @@ class Server:
             print('Got connection from', addr)
             threading.Thread(target=self.handle_client, args=(client_socket,)).start()
             threading.Thread(target=self.controller.process_intersection, args=(client_socket,)).start()
+
