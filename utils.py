@@ -4,7 +4,7 @@ def generate_empty_json():
               'B': {"Cars": [0] * 4, "Cyclists": [0, 0], "Pedestrians": [0] * 4, "Busses": [0]},
               'C': {"Cars": [0] * 4}},
         '2': {'D': {"Cars": [0] * 4},
-              'E': {"Cars": [0] * 3, "Cyclists": [0, 0], "Pedestrians": [0] * 4, "Busses": [0]},
+              'E': {"Cars": [0] * 3, "Cyclists": [0, 0], "Pedestrians": [0] * 4, "Busses": [0, 0]},
               'F': {"Cars": [0] * 4, "Cyclists": [0, 0], "Pedestrians": [0] * 4}}
     }
 

@@ -49,7 +49,8 @@ class TrafficLightController:
         combined_data_AD["2"]["D"]["Cars"] = [2,2,2,2]
         combined_data_AD["1"]["C"]["Cars"] = [0, 0, 2, 2] if 2 in json_data["1"]["C"]["Cars"][-2:] else [0, 0, 0, 0]
         combined_data_AD["2"]["E"]["Cars"] = [0] + json_data["2"]["E"]["Cars"][-2:]
-        combined_data_BE['2']["E"]["Busses"] = [2, 0] if any(
+        print('bussen:',self.received_data.get("2", {}).get("E", {}).get("Busses", []))
+        combined_data_AD['2']["E"]["Busses"] = [0,2] if any(
             bus in [22, 28, 95, 825, 695] for bus in self.received_data.get("2", {}).get("E", {}).get("Busses", [])) else [0]
 
         if 2 in combined_data_AD["1"]["A"]["Cars"] or 2 in combined_data_AD["2"]["D"]["Cars"]:
@@ -61,7 +62,7 @@ class TrafficLightController:
         combined_data_BE["2"]["E"]["Cars"] = [2,2,2,2]
         combined_data_BE["1"]["A"]["Cars"] = [0, 0] + json_data["1"]["A"]["Cars"][-2:]
         combined_data_BE["2"]["F"]["Cars"] = [0, 0, 2, 2] if 2 in json_data["2"]["F"]["Cars"][-2:] else [0, 0, 0, 0]
-        combined_data_BE['2']["E"]["Busses"] = [0,2] if any(
+        combined_data_BE['2']["E"]["Busses"] = [2,0] if any(
             bus in [14, 114, 320] for bus in self.received_data.get("2", {}).get("E", {}).get("Busses", [])) else [0]
 
         if 2 in combined_data_BE["1"]["B"]["Cars"] or 2 in combined_data_BE["2"]["E"]["Cars"]:
@@ -74,7 +75,6 @@ class TrafficLightController:
         combined_data_CF["2"]["D"]["Cars"] = [0, 0, 2, 2] if 2 in json_data["2"]["D"]["Cars"][-2:] else [0, 0, 0, 0]
         combined_data_CF["1"]["B"]["Busses"] = [2] if any(
             bus in [22, 28, 95, 825, 695] for bus in self.received_data.get("1", {}).get("B", {}).get("Busses", [])) else [0]
-
         if 2 in combined_data_CF["1"]["C"]["Cars"] or 2 in combined_data_CF["2"]["F"]["Cars"]:
             print("(C)Based on", self.received_data)
             print("(C)Sending CF", combined_data_CF)
