@@ -9,6 +9,7 @@ class TrafficLightController:
     def __init__(self):
         self.received_data = {}
         self.simulation_lock = threading.Lock()
+        self.prio_car_detected = False
 
     def update_received_data(self, message):
         with self.simulation_lock:
@@ -18,6 +19,9 @@ class TrafficLightController:
         detected_states = [0] * len(detection)
         if road_user == "Cars":
             for index, detectie in enumerate(detection):
+                if detectie.get("PrioCar", False):
+                    detected_states[index] = 2
+                    self.prio_car_detected = True  # Set flag if a PrioCar is detected
                 if detectie.get("DetectNear", False) or detectie.get("DetectFar", False):
                     detected_states[index] = 2
         elif road_user == "Cyclists":
@@ -35,55 +39,83 @@ class TrafficLightController:
                     for light, light_data in intersection_data.items():
                         for road_user, detections in light_data.items():
                             json_data[intersection_id][light][road_user] = self.process_detection(detections, road_user)
-
-            self.merge_and_send_to_simulation(client_socket, json_data)
+            self.prio_car_detected = False  # Reset the flag at the beginning of each iteration
+            if self.prio_car_detected:
+                self.handle_priocars(client_socket)
+            else:
+                self.send_AD(client_socket, json_data)
+                self.send_BE(client_socket, json_data)
+                self.send_CF(client_socket, json_data)
+                self.send_CP(client_socket, json_data)
             time.sleep(1)
 
-    def merge_and_send_to_simulation(self, client_socket, json_data):
-        pedestrian_lists, cyclist_lists = self.get_pedestrian_and_cyclists(json_data)
-        combined_data_AD = generate_empty_json()
-        combined_data_BE = generate_empty_json()
-        combined_data_CF = generate_empty_json()
+    def handle_priocars(self, client_socket):
+        for intersection_id, intersection_data in self.received_data.items():
+            for light, light_data in intersection_data.items():
+                if 'Priocars' in light_data:
+                    priocar_detections = light_data['Priocars']
+                    for index, priocar_detect in enumerate(priocar_detections):
+                        if priocar_detect.get("DetectPriocar", False):
+                            # Set the corresponding lane to green for Priocar
+                            self.send_priocar_green_signal(client_socket, intersection_id, light)
+                            # Break out of the loop since Priocar has priority
+                            break
 
-        combined_data_AD["1"]["A"]["Cars"] = [2,2,2,2]
-        combined_data_AD["2"]["D"]["Cars"] = [2,2,2,2]
-        combined_data_AD["1"]["C"]["Cars"] = [0, 0, 2, 2] if 2 in json_data["1"]["C"]["Cars"][-2:] else [0, 0, 0, 0]
-        combined_data_AD["2"]["E"]["Cars"] = [0] + json_data["2"]["E"]["Cars"][-2:]
+    def send_priocar_green_signal(self, client_socket, intersection_id, light):
+        priocar_green_data = generate_empty_json()
+        priocar_green_data[intersection_id][light]['Cars'] = [2] * len(
+            priocar_green_data[intersection_id][light]['Cars'])
+        self.send_and_wait(client_socket, priocar_green_data, DURATION_GREEN, DURATION_ORANGE)
+
+    def send_AD(self, client_socket, json_data):
+        combined_data = generate_empty_json()
+
+        combined_data["1"]["A"]["Cars"] = [2,2,2,2]
+        combined_data["2"]["D"]["Cars"] = [2,2,2,2]
+        combined_data["1"]["C"]["Cars"] = [0, 0, 2, 2] if 2 in json_data["1"]["C"]["Cars"][-2:] else [0, 0, 0, 0]
+        combined_data["2"]["E"]["Cars"] = [0] + json_data["2"]["E"]["Cars"][-2:]
         print('bussen:',self.received_data.get("2", {}).get("E", {}).get("Busses", []))
-        combined_data_AD['2']["E"]["Busses"] = [0,2] if any(
+        combined_data['2']["E"]["Busses"] = [0,2] if any(
             bus in [22, 28, 95, 825, 695] for bus in self.received_data.get("2", {}).get("E", {}).get("Busses", [])) else [0]
 
-        if 2 in combined_data_AD["1"]["A"]["Cars"] or 2 in combined_data_AD["2"]["D"]["Cars"]:
-            print("(A)Based on", self.received_data)
-            print("(A)Sending AD", combined_data_AD)
-            self.send_and_wait(client_socket, combined_data_AD, DURATION_GREEN, DURATION_ORANGE)
+        print("(A)Based on", self.received_data)
+        print("(A)Sending AD", combined_data)
+        self.send_and_wait(client_socket, combined_data, DURATION_GREEN, DURATION_ORANGE)
 
-        combined_data_BE["1"]["B"]["Cars"] = [2,2,2,2]
-        combined_data_BE["2"]["E"]["Cars"] = [2,2,2,2]
-        combined_data_BE["1"]["A"]["Cars"] = [0, 0] + json_data["1"]["A"]["Cars"][-2:]
-        combined_data_BE["2"]["F"]["Cars"] = [0, 0, 2, 2] if 2 in json_data["2"]["F"]["Cars"][-2:] else [0, 0, 0, 0]
-        combined_data_BE['2']["E"]["Busses"] = [2,0] if any(
+    def send_BE(self,client_socket, json_data):
+        combined_data = generate_empty_json()
+
+        combined_data["1"]["B"]["Cars"] = [2,2,2,2]
+        combined_data["2"]["E"]["Cars"] = [2,2,2,2]
+        combined_data["1"]["A"]["Cars"] = [0, 0] + json_data["1"]["A"]["Cars"][-2:]
+        combined_data["2"]["F"]["Cars"] = [0, 0, 2, 2]
+        combined_data['2']["E"]["Busses"] = [2,0] if any(
             bus in [14, 114, 320] for bus in self.received_data.get("2", {}).get("E", {}).get("Busses", [])) else [0]
 
-        if 2 in combined_data_BE["1"]["B"]["Cars"] or 2 in combined_data_BE["2"]["E"]["Cars"]:
-            print("(B)Based on", self.received_data)
-            print("(B)Sending BE", combined_data_BE)
-            self.send_and_wait(client_socket, combined_data_BE, DURATION_GREEN, DURATION_ORANGE)
+        print("(B)Based on", self.received_data)
+        print("(B)Sending BE", combined_data)
+        self.send_and_wait(client_socket, combined_data, DURATION_GREEN, DURATION_ORANGE)
 
-        combined_data_CF["1"]["C"]["Cars"] = [2,2,2,2]
-        combined_data_CF["2"]["F"]["Cars"] = [2,2,2,2]
-        combined_data_CF["2"]["D"]["Cars"] = [0, 0, 2, 2] if 2 in json_data["2"]["D"]["Cars"][-2:] else [0, 0, 0, 0]
-        combined_data_CF["1"]["B"]["Busses"] = [2] if any(
+    def send_CF(self,client_socket, json_data):
+        combined_data = generate_empty_json()
+
+        combined_data["1"]["C"]["Cars"] = [2,2,2,2]
+        combined_data["2"]["F"]["Cars"] = [2,2,2,2]
+        combined_data["2"]["D"]["Cars"] = [0, 0, 2, 2]
+        combined_data["1"]["B"]["Busses"] = [2] if any(
             bus in [22, 28, 95, 825, 695] for bus in self.received_data.get("1", {}).get("B", {}).get("Busses", [])) else [0]
-        if 2 in combined_data_CF["1"]["C"]["Cars"] or 2 in combined_data_CF["2"]["F"]["Cars"]:
-            print("(C)Based on", self.received_data)
-            print("(C)Sending CF", combined_data_CF)
-            self.send_and_wait(client_socket, combined_data_CF, DURATION_GREEN, DURATION_ORANGE)
 
+        print("(C)Based on", self.received_data)
+        print("(C)Sending CF", combined_data)
+        self.send_and_wait(client_socket, combined_data, DURATION_GREEN, DURATION_ORANGE)
+
+    def send_CP(self, client_socket, json_data):
+        pedestrian_lists, cyclist_lists = self.get_pedestrian_and_cyclists(json_data)
         if any(2 in sublist for sublist in pedestrian_lists) or any(2 in sublist for sublist in cyclist_lists):
             self.send_cyclists_and_pedestrians(client_socket, self.cyclists_and_pedestrians(json_data))
 
     def send_and_wait(self, client_socket, data, green_duration, orange_duration):
+        print("sending:", data)
         client_socket.send(json.dumps(data).encode())
         time.sleep(green_duration)
         client_socket.send(json.dumps(set_oranje(data)).encode())
